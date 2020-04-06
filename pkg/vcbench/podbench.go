@@ -27,6 +27,8 @@ import (
 	tenancyv1alpha1 "github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
 	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/controller/secret"
 	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/syncer/conversion"
+
+	"github.com/charleszheng44/vc-bench/pkg/constants"
 )
 
 const (
@@ -430,7 +432,7 @@ func getTimeInfoOnSuper(pod v1.Pod) (dwsdq, uwsdq, tct, sct, fut, srt int) {
 
 	// DwsDequeue is stored in annotation
 	annos := pod.GetAnnotations()
-	dwsdqStr, exist := annos[ReconcileTime]
+	dwsdqStr, exist := annos[constants.LabelPerfBenchDWSReconcileTime]
 	if !exist {
 		return
 	}
@@ -454,22 +456,22 @@ func getTimeInfoOnSuper(pod v1.Pod) (dwsdq, uwsdq, tct, sct, fut, srt int) {
 			return
 		}
 		switch tup[0] {
-		case BackPopulateTime:
+		case constants.LabelPerfBenchUWSReconcileTime:
 			uwsdq, err = strconv.Atoi(tup[1])
 			if err != nil {
 				return
 			}
-		case FirstUpdateTime:
+		case constants.LabelPerfBenchFirstUpdateTime:
 			fut, err = strconv.Atoi(tup[1])
 			if err != nil {
 				return
 			}
-		case SuperCreationTime:
+		case constants.LabelPerfBenchSuperCreationTime:
 			sct, err = strconv.Atoi(tup[1])
 			if err != nil {
 				return
 			}
-		case SuperReadyTime:
+		case constants.LabelPerfBenchSuperReadyTime:
 			srt, err = strconv.Atoi(tup[1])
 			if err != nil {
 				return
