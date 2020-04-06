@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -xeu
+
+declare -i NUM_VC=${NUM_VC:-1}
+CV_NAME=${CV_NAME:-cv-sample-np}
+VC_NAME_BASE=${VC_NAME_BASE:-vc}
+NS_BASE=${NS_BASE:-t}
+
+declare -r VC_TEMPLATE="
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: _vc-ns
+---
+apiVersion: tenancy.x-k8s.io/v1alpha1
+kind: Virtualcluster
+metadata:
+  annotations:
+    sync-perf/vcid: \"_vc-id\"
+  labels:
+    controller-tools.k8s.io: \"1.0\"
+  name: _vc-name
+  namespace: _vc-ns
+spec:
+  clusterDomain: cluster.local
+  clusterVersionName: $CV_NAME
+  # will expire in one year
+  pkiExpireDays: 365
+  opaqueMetaPrefixes:
+    - \"tenancy.x-k8s.io\"
+  transparentMetaPrefixes:
+    - \"k8s.net.status\"
+"
+
+for i in $(seq 1 $((++NUM_VC))); do
+    curr_template=$(echo "$VC_TEMPLATE" | sed "s/_vc-name/${VC_NAME_BASE}$i/; s/_vc-ns/${NS_BASE}$i/; s/_vc-id/$i/")
+    echo "$curr_template" | kubectl apply -f-
+done

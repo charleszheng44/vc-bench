@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -eux
+
+declare -i NUM_VC=${NUM_VC:-1}
+VC_NAME_BASE=${VC_BASE_NAME:-vc}
+VC_NS_BASE=${VC_NS_BASE:-t}
+
+for i in $( seq 1 $((++NUM_VC)) ); 
+do
+    kubectl delete virtualcluster ${VC_NAME_BASE}$i -n ${VC_NS_BASE}$i
+    kubectl delete ns ${VC_NS_BASE}$i
+done

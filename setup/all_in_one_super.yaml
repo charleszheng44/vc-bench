@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vc-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vc-syncer-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: vc-syncer
+    namespace: vc-manager
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vc-syncer
+  namespace: vc-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vc-syncer
+  namespace: vc-manager
+  labels:
+    app: vc-syncer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vc-syncer
+  template:
+    metadata:
+      labels:
+        app: vc-syncer
+    spec:
+      serviceAccountName: vc-syncer
+      containers:
+        - command:
+            - syncer
+          image: registry.cn-hangzhou.aliyuncs.com/virtualcluster/syncer-amd64
+          imagePullPolicy: Always
+          name: vc-syncer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vc-register
+  namespace: vc-manager
+  labels:
+    app: vc-register
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vc-register
+  template:
+    metadata:
+      labels:
+        app: vc-register
+    spec:
+      serviceAccountName: vc-syncer
+      containers:
+      - command:
+        - register
+        args:
+        - -tckbcfg=/etc/register-kubeconfigs/tenant.kubeconfig
+        image: virtualcluster/register-amd64
+          # image: registry.cn-hangzhou.aliyuncs.com/virtualcluster/register-amd64 
+        imagePullPolicy: Always
+        name: vc-register
+        volumeMounts:
+        - name: register-kubeconfigs
+          mountPath: /etc/register-kubeconfigs/
+      volumes:
+      - name: register-kubeconfigs
+        configMap:
+          name: register-kubeconfigs

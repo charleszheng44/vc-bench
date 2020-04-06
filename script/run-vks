@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+declare -r BENCHMARK_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+declare -r BIN_DIR=${BENCHMARK_ROOT}/bin
+declare -r TMP_DIR=${BENCHMARK_ROOT}/tmp
+
+# use vk executable base on OS
+if [ $(uname) == Darwin ]; then
+    VK_BIN=${BIN_DIR}/virtual-kubelet
+else
+    VK_BIN=${BIN_DIR}/virtual-kubelet-linux
+fi
+
+declare -r VK_BASE_NAME=${VK_BASE_NAME:-vkubelet-mock}
+declare -r VK_PROVIDER=${VK_PROVIDER:-mock}
+declare -r TMP_CFG_BASE_NAME=${TMP_CFG_FN:-vk-cfg}
+
+KUBE_CFG=${KUBE_CFG:-$HOME/.kube/config}
+
+declare -A vk_pid_map
+declare -r VK_TEMPLATE="{
+    \"_vkname\": {
+      \"cpu\": \"2\",
+      \"memory\": \"32Gi\",
+      \"pods\": \"128\"
+    }
+}"
+
+show_usage() {
+cat << USAGE
+Usage of run-vks:
+    -h  show this message
+    -n  number of vk are going to run
+    -b  the path to the virtual-kubelete executable
+    -k  the path to the kubeconfig of the target cluster
+USAGE
+}
+
+# start_vks start vk processes to pretent as nodes on target k8s
+# 
+# i.e. ./path/to/virtual-kubelet-<linux> --provider mock 
+# --provider-config hack/skaffold/virtual-kubelet/vkubelet-mock-0-cfg.json 
+# --kubeconfig /path/to/kubeconfig
+# --nodename vkubelet-mock-0
+start_vks() {
+    local -i num_vk=$1 
+    
+    if [ -d ${TMP_DIR} ]; then
+        rm -Rf ${TMP_DIR} 
+    fi  
+    mkdir ${TMP_DIR}
+
+    for i in $(seq 0 $((--num_vk))); do
+        local tmp_cfg_fn=${TMP_DIR}/${TMP_CFG_BASE_NAME}-$i
+        [ -e $tmp_cfg_fn ] && rm $tmp_cfg_fn
+        # gen vk name 
+        vk_name=${VK_BASE_NAME}-$i
+        local vk_log_fn=${TMP_DIR}/${vk_name}.log
+        # subsitute the template
+        echo "$VK_TEMPLATE" | sed "s/_vkname/$vk_name/" > ${tmp_cfg_fn}
+        # start the vk
+        ${VK_BIN} --provider ${VK_PROVIDER} --provider-config ${tmp_cfg_fn} \
+            --kubeconfig ${KUBE_CFG} --metrics-addr ":0" --nodename ${vk_name} \
+            > ${vk_log_fn} 2>&1 &
+        echo "vk ${vk_name} is started"
+        # record the pid of the vk process
+        vk_pid_map[${vk_name}]=$!
+    done
+
+    echo ${vk_pid_map[@]}
+    
+    trap "clean_up" SIGINT
+
+    # do nothing
+    while : ; do
+        :
+    done
+}
+
+# clean_up stop vk processes, delete nodes from k8s and remove intermediate
+# log/configuration files
+clean_up() {
+    echo stopping all vk...
+    for k in ${!vk_pid_map[@]}; do
+        echo "delete vk $k(pid=${vk_pid_map[$k]})"
+        kubectl delete node $k
+    done
+    rm -Rf ${TMP_DIR}
+    
+    exit
+}
+
+while getopts "hn:b:" opt; do
+    case "$opt" in
+        h)
+            show_usage
+            exit 0
+            ;;
+        n)
+            num_vk=$OPTARG 
+            ;;
+        b) 
+            VK_BIN=$OPTARG
+            ;;
+        k) 
+            KUBE_CFG=$OPTARG
+            ;;
+        ?)
+            echo "unknown cmd opt ${opt}"
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+start_vks ${num_vk} 
