@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"strconv"
-	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -279,8 +278,8 @@ func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, rsrcPerVc in
 	}
 	log.Printf("[GOROUTINE] benchmark namespace(%s) is created on vc(%s)",
 		DefaultBenchNamespace, vc)
-	log.Println("will sleep for 2 mins to wait for sa been created")
-	<-time.After(time.Duration(2) * time.Minute)
+	log.Println("will sleep for 1 min to wait for sa been created")
+	<-time.After(time.Duration(1) * time.Minute)
 	for i := 0; i < rsrcPerVc; i++ {
 		// subsitute rsrc yaml
 		podName := fmt.Sprintf("%s-%s%d", vc, defaultPodBaseName, i)
@@ -430,7 +429,6 @@ func getTimeInfoOnSuper(pod v1.Pod) (dwsdq, uwsdq, tct, sct, fut, srt int) {
 	}
 	tct = int(tctt.Unix())
 
-	// DwsDequeue is stored in annotation
 	annos := pod.GetAnnotations()
 	dwsdqStr, exist := annos[constants.LabelPerfBenchDWSReconcileTime]
 	if !exist {
@@ -441,45 +439,40 @@ func getTimeInfoOnSuper(pod v1.Pod) (dwsdq, uwsdq, tct, sct, fut, srt int) {
 		return
 	}
 
-	// UwsDequeue, SuperCreationTime, SuperReadyTime, and FirstUpdateTime can be found in
-	// message of the last condition of the status
-	// sync-perf/uws-backpopulate:XXXX,sync-perf/first-update:XXXX,sync-perf/super-creation-time:XXXX
-	lastCondition := pod.Status.Conditions[len(pod.Status.Conditions)-1]
-	if lastCondition.Message == "" {
+	uwsdqStr, exist := annos[constants.LabelPerfBenchUWSReconcileTime]
+	if !exist {
+		return
+	}
+	uwsdq, err = strconv.Atoi(uwsdqStr)
+	if err != nil {
 		return
 	}
 
-	strLst := strings.Split(lastCondition.Message, ",")
-	for _, str := range strLst {
-		tup := strings.Split(str, ":")
-		if len(tup) != 2 {
-			return
-		}
-		switch tup[0] {
-		case constants.LabelPerfBenchUWSReconcileTime:
-			uwsdq, err = strconv.Atoi(tup[1])
-			if err != nil {
-				return
-			}
-		case constants.LabelPerfBenchFirstUpdateTime:
-			fut, err = strconv.Atoi(tup[1])
-			if err != nil {
-				return
-			}
-		case constants.LabelPerfBenchSuperCreationTime:
-			sct, err = strconv.Atoi(tup[1])
-			if err != nil {
-				return
-			}
-		case constants.LabelPerfBenchSuperReadyTime:
-			srt, err = strconv.Atoi(tup[1])
-			if err != nil {
-				return
-			}
-		default:
-			log.Printf("unknown key: %s", tup[0])
-			return
-		}
+	futStr, exist := annos[constants.LabelPerfBenchFirstUpdateTime]
+	if !exist {
+		return
+	}
+	fut, err = strconv.Atoi(futStr)
+	if err != nil {
+		return
+	}
+
+	sctStr, exist := annos[constants.LabelPerfBenchSuperCreationTime]
+	if !exist {
+		return
+	}
+	sct, err = strconv.Atoi(sctStr)
+	if err != nil {
+		return
+	}
+
+	srtStr, exist := annos[constants.LabelPerfBenchSuperReadyTime]
+	if !exist {
+		return
+	}
+	srt, err = strconv.Atoi(srtStr)
+	if err != nil {
+		return
 	}
 
 	return
