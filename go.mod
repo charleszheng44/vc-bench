@@ -1,8 +1,16 @@
 module github.com/charleszheng44/vc-bench
 
-go 1.14
+go 1.13
 
-require k8s.io/kubernetes v1.16.5
+require (
+	github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster v0.0.0-20200405185545-67b79fdac6e0
+	gopkg.in/yaml.v2 v2.2.7
+	k8s.io/api v0.17.2
+	k8s.io/apimachinery v0.17.2
+	k8s.io/client-go v0.17.2
+	k8s.io/kubernetes v1.16.5
+	sigs.k8s.io/controller-runtime v0.5.2
+)
 
 replace (
 	k8s.io/api => k8s.io/api v0.16.5

@@ -10,11 +10,12 @@ import (
 
 	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	vcutil "github.com/charleszheng44/vc-bench/pkg/util/vc"
 	tenancyv1alpha1 "github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
-	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/syncer/conversion"
 )
 
 func UpdateKubeConfig(admKbCfgByts []byte, newServerUrl string) ([]byte, error) {
@@ -63,7 +64,7 @@ func GetNodePortUrl(cli client.Reader, vc *tenancyv1alpha1.Virtualcluster) (addr
 	if err != nil {
 		return
 	}
-	port, err := getNodePort(cli, apisvcName, conversion.ToClusterKey2(vc))
+	port, err := getNodePort(cli, apisvcName, vcutil.ToClusterKey2(vc))
 	if err != nil {
 		return
 	}
@@ -137,4 +138,12 @@ func getApiserverSvcName(cli client.Reader, vc *tenancyv1alpha1.Virtualcluster) 
 		return
 	}
 	return
+}
+
+func CreateNS(cli client.Client, nsName string) error {
+	return cli.Create(context.TODO(), &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nsName,
+		},
+	}, &client.CreateOptions{})
 }

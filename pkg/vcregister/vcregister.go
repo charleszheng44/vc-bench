@@ -20,12 +20,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	benchkubeutil "github.com/charleszheng44/vc-bench/pkg/util/kube"
+	benchvcutil "github.com/charleszheng44/vc-bench/pkg/util/vc"
 	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis"
 	tenancyv1alpha1 "github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
 	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/controller/secret"
-	kubeutil "github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/controller/util/kube"
 	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/syncer/constants"
-	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/syncer/conversion"
 )
 
 const (
@@ -175,7 +174,7 @@ func (vcr *VirtualclusterRegister) onAdd(obj interface{}) {
 	vc = filterVcMeta(vc)
 
 	// 1. create the tenant namespace
-	if err := kubeutil.CreateNS(vcr.metaClusterClient, vc.GetNamespace()); err != nil {
+	if err := benchkubeutil.CreateNS(vcr.metaClusterClient, vc.GetNamespace()); err != nil {
 		log.Printf("fail to create tenant namespace(%s) for virtualcluster(%s)",
 			vc.GetNamespace(), vc.GetName())
 	}
@@ -208,7 +207,7 @@ func filterVcMeta(vc *tenancyv1alpha1.Virtualcluster) *tenancyv1alpha1.Virtualcl
 func (vcr *VirtualclusterRegister) initializeVcOnMeta(vc *tenancyv1alpha1.Virtualcluster) {
 	log.Printf("initialzing vc(%s) on super", vc.GetName())
 	// 1. update the admin-kubeconfig
-	rootNs := conversion.ToClusterKey2(vc)
+	rootNs := benchvcutil.ToClusterKey2(vc)
 	admKbCfgSrt := &v1.Secret{}
 	if err := vcr.tenantClusterReader.Get(context.TODO(), types.NamespacedName{
 		Namespace: rootNs,
@@ -233,7 +232,7 @@ func (vcr *VirtualclusterRegister) initializeVcOnMeta(vc *tenancyv1alpha1.Virtua
 	// }
 
 	// 3. create the root namespace of the vc
-	if err := kubeutil.CreateNS(vcr.metaClusterClient, rootNs); err != nil {
+	if err := benchkubeutil.CreateNS(vcr.metaClusterClient, rootNs); err != nil {
 		log.Printf("fail to create the root namespace(%s) for virtualcluster(%s): %s",
 			rootNs, vc.GetName(), err)
 		return
@@ -332,7 +331,7 @@ func isRelatedToVc(ns *v1.Namespace, vc *tenancyv1alpha1.Virtualcluster) bool {
 			break
 		}
 	}
-	if tmpVcName != "" && tmpVcName == conversion.ToClusterKey2(vc) {
+	if tmpVcName != "" && tmpVcName == benchvcutil.ToClusterKey2(vc) {
 		return true
 	}
 	return false
@@ -377,9 +376,9 @@ func (vcr *VirtualclusterRegister) onDelete(obj interface{}) {
 	}
 	vcr.deleteBelongings(vc)
 	if err := vcr.metaClusterClient.Delete(context.TODO(), &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: conversion.ToClusterKey2(vc)},
+		ObjectMeta: metav1.ObjectMeta{Name: benchvcutil.ToClusterKey2(vc)},
 	}); err != nil && !apierrors.IsNotFound(err) {
-		log.Printf("fail to delete the root namespace: %s", conversion.ToClusterKey2(vc))
+		log.Printf("fail to delete the root namespace: %s", benchvcutil.ToClusterKey2(vc))
 		return
 	}
 	vc = filterVcMeta(vc)
