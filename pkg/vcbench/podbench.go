@@ -200,7 +200,6 @@ func yamlBytsToObject(scheme *runtime.Scheme, yamlByts []byte) (runtime.Object, 
 }
 
 func (be *BenchExecutor) CleanUp(targetNs string) {
-
 	startTime2 := time.Now().Unix()
 	for vc, vcCli := range be.vcClients {
 		log.Printf("will delete vk-nodes on vc %s", vc)
