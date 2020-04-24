@@ -8,6 +8,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/charleszheng44/vc-bench/pkg/tenant"
 	"github.com/charleszheng44/vc-bench/pkg/vcbench"
 )
 
@@ -16,9 +17,9 @@ var (
 	outDataDir             string
 	syncerAddr             string
 	kubeletAddr            string
+	tenantJson             string
 	scrapeInterval         int
 	scrapeKubeletInterval  int
-	numPod                 int
 	numOfVC                int
 	tenantInterval         int
 	podInterval            int
@@ -61,12 +62,11 @@ func init() {
 	runBenchFlagSet.StringVar(&outDataDir, "outDataDir", "", "The path to the directory that will store benchmark data")
 	runBenchFlagSet.StringVar(&syncerAddr, "syncerAddr", "", "The address of the syncer pod")
 	runBenchFlagSet.StringVar(&kubeletAddr, "kubeletAddr", "", "The address of the kubelet")
-	runBenchFlagSet.IntVar(&numPod, "numpod", 10, "Total amount of pods that will be created")
+	runBenchFlagSet.StringVar(&tenantJson, "tenantJson", "", "The path to the tenant json file")
 	runBenchFlagSet.IntVar(&scrapeInterval, "scrapeInterval", 20, "The interval for scraping metrics from syncer pod")
 	runBenchFlagSet.IntVar(&scrapeKubeletInterval, "scrapeKubeletInterval", 30, "The interval for scraping metrics from kubelet")
 	runBenchFlagSet.IntVar(&tenantInterval, "tntintvl", 0, "The submission interval among tenants")
 	runBenchFlagSet.IntVar(&podInterval, "podintvl", 0, "The submission interval of pods in one tenant")
-	runBenchFlagSet.IntVar(&numOfVC, "numvc", 10, "Number of Virtualcluster that will be used")
 	runBenchFlagSet.IntVar(&syncerStandaloneMinute, "syncer-alone-minutes", 5, "Number of minutes for syncer to standalone after podbench successfully completing")
 
 	// command options for subcommand "clean"
@@ -121,10 +121,18 @@ func main() {
 
 	case "run":
 		runBenchFlagSet.Parse(os.Args[2:])
+		tenantLst, err := tenant.ParseTenantsJson(tenantJson)
+		numPod := 0
+		for _, t := range tenantLst {
+			numPod = numPod + t.NumPods
+		}
+		if err != nil {
+			log.Fatalf("fail to parse tenants json file(%s): %s", tenantJson, err)
+		}
 		// 1. create directory for storing benchmark results
 		if outDataDir == "" {
-			outDataDir = fmt.Sprintf("pod%d-vc%d-vcsleep%d-podsleep%d-%s",
-				numPod, numOfVC,
+			outDataDir = fmt.Sprintf("pod%d-tenant%d-vcsleep%d-podsleep%d-%s",
+				numPod, len(tenantLst),
 				tenantInterval, podInterval,
 				time.Now().Format(TimeOutputFmt))
 		}
@@ -146,7 +154,7 @@ func main() {
 		}
 
 		// 2. run benchmark
-		be, err := vcbench.NewBenchExecutor(tenantsKbCfgPath, numPod, tenantInterval, podInterval, numOfVC)
+		be, err := vcbench.NewBenchExecutor(tenantsKbCfgPath, tenantLst, tenantInterval, podInterval, numOfVC)
 		if err != nil {
 			log.Fatalf("fail to initialize bench executor: %s", err)
 		}
@@ -186,7 +194,7 @@ func main() {
 
 	case "clean":
 		cleanupFlagSet.Parse(os.Args[2:])
-		be, err := vcbench.NewBenchExecutor(tenantsKbCfgPath, 0, 0, 0, int(^uint(0)>>1))
+		be, err := vcbench.NewBenchExecutor(tenantsKbCfgPath, []tenant.Tenant{}, 0, 0, int(^uint(0)>>1))
 		if err != nil {
 			log.Fatalf("fail to initialize bench executor: %s", err)
 		}

@@ -28,6 +28,7 @@ import (
 	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/syncer/conversion"
 
 	"github.com/charleszheng44/vc-bench/pkg/constants"
+	"github.com/charleszheng44/vc-bench/pkg/tenant"
 )
 
 const (
@@ -64,7 +65,6 @@ spec:
 )
 
 type PodBenchConfig struct {
-	NumRsrc        int
 	RsrcTemp       string
 	TenantInterval int
 	PodInterval    int
@@ -87,13 +87,14 @@ type BenchExecutor struct {
 	*PodBenchConfig
 	sync.Mutex
 
+	Tenants         []tenant.Tenant
 	scheme          *runtime.Scheme
 	RuntimeStatics  map[string]*RuntimeStatics
 	vcClients       map[string]client.Client
 	waitingPodsOnVc map[string]int
 }
 
-func NewBenchExecutor(tenantsKbCfg string, numpod, tenantInterval, podInterval, numOfVC int) (*BenchExecutor, error) {
+func NewBenchExecutor(tenantsKbCfg string, tenants []tenant.Tenant, tenantInterval, podInterval, numOfVC int) (*BenchExecutor, error) {
 	// generate rest.Config for accessing tenant-masters k8s
 	tntKbCfgbyts, err := ioutil.ReadFile(tenantsKbCfg)
 	if err != nil {
@@ -108,8 +109,8 @@ func NewBenchExecutor(tenantsKbCfg string, numpod, tenantInterval, podInterval, 
 		RuntimeStatics:  make(map[string]*RuntimeStatics),
 		vcClients:       make(map[string]client.Client),
 		waitingPodsOnVc: make(map[string]int),
+		Tenants:         tenants,
 		PodBenchConfig: &PodBenchConfig{
-			NumRsrc:        numpod,
 			TenantInterval: tenantInterval,
 			PodInterval:    podInterval,
 		},
@@ -263,7 +264,7 @@ func (be *BenchExecutor) CleanUp(targetNs string) {
 
 }
 
-func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, rsrcPerVc int, wg *sync.WaitGroup) {
+func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, tenant tenant.Tenant, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Printf("[GOROUTINE] start submitting pod on vc(%s)", vc)
 	benchNs := &v1.Namespace{
@@ -279,9 +280,9 @@ func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, rsrcPerVc in
 		DefaultBenchNamespace, vc)
 	log.Println("will sleep for 1 min to wait for sa been created")
 	<-time.After(time.Duration(1) * time.Minute)
-	for i := 0; i < rsrcPerVc; i++ {
+	for i := 0; i < tenant.NumPods; i++ {
 		// subsitute rsrc yaml
-		podName := fmt.Sprintf("%s-%s%d", vc, defaultPodBaseName, i)
+		podName := fmt.Sprintf("%s-%s-%s%d", vc, tenant.ID, defaultPodBaseName, i)
 		ctx := map[string]string{
 			"podname":      podName,
 			"podnamespace": DefaultBenchNamespace,
@@ -328,32 +329,16 @@ func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, rsrcPerVc in
 
 func (be *BenchExecutor) RunBench() error {
 	// equally spread rsrc to each vc
-	var (
-		rsrcPerVc int
-		vcBeUsed  int
-	)
-
-	if be.NumRsrc < len(be.vcClients) {
-		rsrcPerVc = 1
-		vcBeUsed = be.NumRsrc
-	} else {
-		rsrcPerVc = be.NumRsrc / len(be.vcClients)
-		vcBeUsed = len(be.vcClients)
-	}
-
-	log.Printf("will try to submit %d pods to each vc", rsrcPerVc)
-	var (
-		vcCounter int
-	)
 	var wg sync.WaitGroup
+	tenantCounter := 0
 	for vc, vcCli := range be.vcClients {
-		wg.Add(1)
-		go be.SubmitPods(vc, vcCli, rsrcPerVc, &wg)
-		time.Sleep(time.Duration(be.TenantInterval) * time.Second)
-		if vcCounter == vcBeUsed-1 {
+		if tenantCounter == len(be.Tenants) {
 			break
 		}
-		vcCounter++
+		wg.Add(1)
+		go be.SubmitPods(vc, vcCli, be.Tenants[tenantCounter], &wg)
+		tenantCounter++
+		time.Sleep(time.Duration(be.TenantInterval) * time.Second)
 	}
 	log.Printf("waiting for submitting pod on vc...")
 	wg.Wait()
