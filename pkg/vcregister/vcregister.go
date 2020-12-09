@@ -38,7 +38,7 @@ var vcGVK schema.GroupVersionKind = schema.GroupVersionKind{
 }
 
 // VirtualclusterRegister is the controller syncs the Virtualcluster(VC) cr
-// between the metaCluster and the tenantClusterCache (k8s that hosts vc masters)
+// between the metaCluster and the tenantCluster (k8s that hosts vc masters)
 type VirtualclusterRegister struct {
 	// tenantClusterCache contains informers that monitor resources
 	// (i.e. Virtualcluster) on cluster that manages tenant masters
