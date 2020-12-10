@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vcutil "github.com/charleszheng44/vc-bench/pkg/util/vc"
-	tenancyv1alpha1 "github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
 )
 
 func UpdateKubeConfig(admKbCfgByts []byte, newServerUrl string) ([]byte, error) {
@@ -53,7 +53,7 @@ func UpdateKubeConfig(admKbCfgByts []byte, newServerUrl string) ([]byte, error) 
 	return newAdmKbCfgByts, nil
 }
 
-func GetNodePortUrl(cli client.Reader, vc *tenancyv1alpha1.Virtualcluster) (addr string, err error) {
+func GetNodePortUrl(cli client.Reader, vc *tenancyv1alpha1.VirtualCluster) (addr string, err error) {
 	// 1. get node ip
 	nodeIP, err := getNodeIP(cli)
 	if err != nil {
@@ -116,7 +116,7 @@ func getNodePort(cli client.Reader, svcName, namespace string) (port int32, err 
 	return
 }
 
-func getApiserverSvcName(cli client.Reader, vc *tenancyv1alpha1.Virtualcluster) (apisvcName string, err error) {
+func getApiserverSvcName(cli client.Reader, vc *tenancyv1alpha1.VirtualCluster) (apisvcName string, err error) {
 	cvName := vc.Spec.ClusterVersionName
 	if cvName == "" {
 		err = fmt.Errorf("Virtualcluster(%s) spec doesn't contain ClusterVersionName field", vc.GetName())

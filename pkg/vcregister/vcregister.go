@@ -21,10 +21,10 @@ import (
 
 	benchkubeutil "github.com/charleszheng44/vc-bench/pkg/util/kube"
 	benchvcutil "github.com/charleszheng44/vc-bench/pkg/util/vc"
-	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis"
-	tenancyv1alpha1 "github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
-	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/controller/secret"
-	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/syncer/constants"
+	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis"
+	tenancyv1alpha1 "sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
+	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/controller/secret"
+	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/syncer/constants"
 )
 
 const (
@@ -34,7 +34,7 @@ const (
 var vcGVK schema.GroupVersionKind = schema.GroupVersionKind{
 	Group:   "tenancy.x-k8s.io",
 	Version: "v1alpha1",
-	Kind:    "Virtualcluster",
+	Kind:    "VirtualCluster",
 }
 
 // VirtualclusterRegister is the controller syncs the Virtualcluster(VC) cr
@@ -66,9 +66,15 @@ func New(metaKbCfg, tcKbCfg string) (*VirtualclusterRegister, error) {
 			errors.New("meta kubeconfig is same as tenant-masters kubeconfig")
 	}
 
+	// 0. add Virtualcluster and ClusterVersion GVK to scheme
+	registerScheme := scheme.Scheme
+	if err := apis.AddToScheme(registerScheme); err != nil {
+		return nil, err
+	}
+
 	// 1. create VirtualclusterRegister and initialize an empty scheme
 	// NOTE metaClusterClient and tenantClusterCache will share the same scheme
-	vcr := &VirtualclusterRegister{scheme: scheme.Scheme}
+	vcr := &VirtualclusterRegister{scheme: registerScheme}
 
 	// 2. create the metaClusterClient
 	var (
@@ -102,8 +108,7 @@ func New(metaKbCfg, tcKbCfg string) (*VirtualclusterRegister, error) {
 	vcr.tenantClusterReader = tenantClusterReader
 
 	// 4. build the cache for tenant cluster
-	tenantClusterCache, err := cache.New(
-		tcCfg, cache.Options{Scheme: vcr.scheme})
+	tenantClusterCache, err := cache.New(tcCfg, cache.Options{Scheme: vcr.scheme})
 	if err != nil {
 		return nil, err
 	}
@@ -116,15 +121,10 @@ func New(metaKbCfg, tcKbCfg string) (*VirtualclusterRegister, error) {
 // the scheme, then registering event handlers for informers in
 // tenantClusterCache, and run the informer.
 func (vcr *VirtualclusterRegister) Start(stop <-chan struct{}) error {
-	// 1. add Virtualcluster and ClusterVersion GVK to scheme
-	if err := apis.AddToScheme(vcr.scheme); err != nil {
-		return err
-	}
-
 	// get vc informer, if the informer not exist
 	// `GetInformerForKind(gvk schema.GroupVersionKind)` will
 	// create one
-	vcIfm, err := vcr.tenantClusterCache.GetInformerForKind(vcGVK)
+	vcIfm, err := vcr.tenantClusterCache.GetInformerForKind(context.TODO(), vcGVK)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (vcr *VirtualclusterRegister) Start(stop <-chan struct{}) error {
 
 // onAdd registers obj on the meta cluster
 func (vcr *VirtualclusterRegister) onAdd(obj interface{}) {
-	vc, ok := obj.(*tenancyv1alpha1.Virtualcluster)
+	vc, ok := obj.(*tenancyv1alpha1.VirtualCluster)
 	if !ok {
 		log.Print("onAdd function fail to convert object to Virtualcluster")
 	}
@@ -198,13 +198,13 @@ func filterObjMeta(objMeta metav1.ObjectMeta) metav1.ObjectMeta {
 	return objMeta
 }
 
-func filterVcMeta(vc *tenancyv1alpha1.Virtualcluster) *tenancyv1alpha1.Virtualcluster {
+func filterVcMeta(vc *tenancyv1alpha1.VirtualCluster) *tenancyv1alpha1.VirtualCluster {
 	vc.ObjectMeta = filterObjMeta(vc.ObjectMeta)
 	vc.ObjectMeta.Finalizers = []string{}
 	return vc
 }
 
-func (vcr *VirtualclusterRegister) initializeVcOnMeta(vc *tenancyv1alpha1.Virtualcluster) {
+func (vcr *VirtualclusterRegister) initializeVcOnMeta(vc *tenancyv1alpha1.VirtualCluster) {
 	log.Printf("initialzing vc(%s) on super", vc.GetName())
 	// 1. update the admin-kubeconfig
 	rootNs := benchvcutil.ToClusterKey2(vc)
@@ -248,12 +248,12 @@ func (vcr *VirtualclusterRegister) initializeVcOnMeta(vc *tenancyv1alpha1.Virtua
 
 // onUpdate updates new object on the meta cluster
 func (vcr *VirtualclusterRegister) onUpdate(old, new interface{}) {
-	oldVc, ok := old.(*tenancyv1alpha1.Virtualcluster)
+	oldVc, ok := old.(*tenancyv1alpha1.VirtualCluster)
 	if !ok {
 		log.Printf("onUpdate function fail to convert old object to Virtualcluster")
 		return
 	}
-	vc, ok := new.(*tenancyv1alpha1.Virtualcluster)
+	vc, ok := new.(*tenancyv1alpha1.VirtualCluster)
 	if !ok {
 		log.Printf("onUpdate function fail to convert new object to Virtualcluster")
 		return
@@ -261,7 +261,7 @@ func (vcr *VirtualclusterRegister) onUpdate(old, new interface{}) {
 	log.Printf("updating Virtualcluster(%s) on meta cluster", vc.Name)
 
 	// get corresponding vc on meta cluster
-	metaVc := &tenancyv1alpha1.Virtualcluster{}
+	metaVc := &tenancyv1alpha1.VirtualCluster{}
 	if err := vcr.metaClusterClient.Get(context.TODO(), types.NamespacedName{
 		Namespace: vc.GetNamespace(),
 		Name:      vc.GetName(),
@@ -323,7 +323,7 @@ func removesString(strLst []string, str string) []string {
 // isRelatedToVc checks if given namespace is related to vc, i.e. contains
 // annotation "tenancy.x-k8s.io/cluster":conversion.ToClusterKey(vc)
 // NOTE the root ns doesn't contain this annotation
-func isRelatedToVc(ns *v1.Namespace, vc *tenancyv1alpha1.Virtualcluster) bool {
+func isRelatedToVc(ns *v1.Namespace, vc *tenancyv1alpha1.VirtualCluster) bool {
 	var tmpVcName string
 	for k, v := range ns.GetAnnotations() {
 		if k == constants.LabelCluster {
@@ -337,7 +337,7 @@ func isRelatedToVc(ns *v1.Namespace, vc *tenancyv1alpha1.Virtualcluster) bool {
 	return false
 }
 
-func (vcr *VirtualclusterRegister) deleteBelongings(vc *tenancyv1alpha1.Virtualcluster) {
+func (vcr *VirtualclusterRegister) deleteBelongings(vc *tenancyv1alpha1.VirtualCluster) {
 	// delete all related ns, except the root ns
 	nsLst := &v1.NamespaceList{}
 	if err := vcr.metaClusterClient.List(context.TODO(), nsLst); err != nil {
@@ -370,7 +370,7 @@ func (vcr *VirtualclusterRegister) deleteBelongings(vc *tenancyv1alpha1.Virtualc
 
 // onDelete removes obj from the meta cluster
 func (vcr *VirtualclusterRegister) onDelete(obj interface{}) {
-	vc, ok := obj.(*tenancyv1alpha1.Virtualcluster)
+	vc, ok := obj.(*tenancyv1alpha1.VirtualCluster)
 	if !ok {
 		log.Print("onDelete function fail to convert object to Virtualcluster")
 	}

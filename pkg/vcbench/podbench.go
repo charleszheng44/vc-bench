@@ -22,10 +22,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis"
-	tenancyv1alpha1 "github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
-	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/controller/secret"
-	"github.com/kubernetes-sigs/multi-tenancy/incubator/virtualcluster/pkg/syncer/conversion"
+	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis"
+	tenancyv1alpha1 "sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
+	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/controller/secret"
+	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/syncer/conversion"
 
 	"github.com/charleszheng44/vc-bench/pkg/constants"
 	"github.com/charleszheng44/vc-bench/pkg/tenant"
@@ -129,7 +129,7 @@ func NewBenchExecutor(tenantsKbCfg string, tenants []tenant.Tenant, tenantInterv
 	log.Print("built client for tenants master kube")
 
 	// build clients for each vc
-	vcLst := &tenancyv1alpha1.VirtualclusterList{}
+	vcLst := &tenancyv1alpha1.VirtualClusterList{}
 	if err = cli.List(context.TODO(), vcLst); err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func NewBenchExecutor(tenantsKbCfg string, tenants []tenant.Tenant, tenantInterv
 	return be, nil
 }
 
-func buildVcClient(tenantKubeCli client.Client, vc *tenancyv1alpha1.Virtualcluster) (client.Client, error) {
+func buildVcClient(tenantKubeCli client.Client, vc *tenancyv1alpha1.VirtualCluster) (client.Client, error) {
 	rootNs := conversion.ToClusterKey(vc)
 	admKbCfgSrt := &v1.Secret{}
 	if err := tenantKubeCli.Get(context.TODO(), types.NamespacedName{
