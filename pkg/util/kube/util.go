@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	vcutil "github.com/charleszheng44/vc-bench/pkg/util/vc"
 	tenancyv1alpha1 "sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
 )
 
@@ -64,7 +63,7 @@ func GetNodePortUrl(cli client.Reader, vc *tenancyv1alpha1.VirtualCluster) (addr
 	if err != nil {
 		return
 	}
-	port, err := getNodePort(cli, apisvcName, vcutil.ToClusterKey2(vc))
+	port, err := getNodePort(cli, apisvcName, vc.Status.ClusterNamespace)
 	if err != nil {
 		return
 	}

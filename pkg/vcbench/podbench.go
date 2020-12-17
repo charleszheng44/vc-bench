@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis"
 	tenancyv1alpha1 "sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
 	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/controller/secret"
-	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/syncer/conversion"
 
 	"github.com/charleszheng44/vc-bench/pkg/constants"
 	"github.com/charleszheng44/vc-bench/pkg/tenant"
@@ -155,7 +154,7 @@ func NewBenchExecutor(tenantsKbCfg string, tenants []tenant.Tenant, tenantInterv
 }
 
 func buildVcClient(tenantKubeCli client.Client, vc *tenancyv1alpha1.VirtualCluster) (client.Client, error) {
-	rootNs := conversion.ToClusterKey(vc)
+	rootNs := vc.Status.ClusterNamespace
 	admKbCfgSrt := &v1.Secret{}
 	if err := tenantKubeCli.Get(context.TODO(), types.NamespacedName{
 		Namespace: rootNs,
@@ -177,7 +176,7 @@ func buildVcClient(tenantKubeCli client.Client, vc *tenancyv1alpha1.VirtualClust
 	// if err != nil {
 	// 	return nil, err
 	// }
-	// log.Printf("update admin-kubeconfig for vc(%s)", vc.GetName())
+	log.Printf("update admin-kubeconfig for vc(%s)", vc.GetName())
 	vcRestCfg, err := clientcmd.RESTConfigFromKubeConfig(admKbCfgBytes)
 	if err != nil {
 		return nil, err

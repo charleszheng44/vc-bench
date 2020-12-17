@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	benchkubeutil "github.com/charleszheng44/vc-bench/pkg/util/kube"
-	benchvcutil "github.com/charleszheng44/vc-bench/pkg/util/vc"
 	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis"
 	tenancyv1alpha1 "sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/apis/tenancy/v1alpha1"
 	"sigs.k8s.io/multi-tenancy/incubator/virtualcluster/pkg/controller/secret"
@@ -207,7 +206,7 @@ func filterVcMeta(vc *tenancyv1alpha1.VirtualCluster) *tenancyv1alpha1.VirtualCl
 func (vcr *VirtualclusterRegister) initializeVcOnMeta(vc *tenancyv1alpha1.VirtualCluster) {
 	log.Printf("initialzing vc(%s) on super", vc.GetName())
 	// 1. update the admin-kubeconfig
-	rootNs := benchvcutil.ToClusterKey2(vc)
+	rootNs := vc.Status.ClusterNamespace
 	admKbCfgSrt := &v1.Secret{}
 	if err := vcr.tenantClusterReader.Get(context.TODO(), types.NamespacedName{
 		Namespace: rootNs,
@@ -219,17 +218,17 @@ func (vcr *VirtualclusterRegister) initializeVcOnMeta(vc *tenancyv1alpha1.Virtua
 	// 2. replacing the server's url in admin-kubeconfig
 	// [SYNC_PERF_2] We are using the hostnetwork now, no need to update the serverurl
 	//
-	// newUrl, getIPErr := benchkubeutil.GetNodePortUrl(vcr.tenantClusterReader, vc)
-	// if getIPErr != nil {
-	// 	log.Printf("fail to get node IP for Virtualcluster(%s): %s", vc.GetName(), getIPErr)
-	// 	return
-	// }
-	// admKbCfgSrt, updateErr := updateKubeConfigSecret(admKbCfgSrt, newUrl)
-	// if updateErr != nil {
-	// 	log.Printf("fail to update admin-kubeconfig secret for Virtualcluster(%s): %s",
-	// 		vc.GetName(), updateErr)
-	// 	return
-	// }
+	newUrl, getIPErr := benchkubeutil.GetNodePortUrl(vcr.tenantClusterReader, vc)
+	if getIPErr != nil {
+		log.Printf("fail to get node IP for Virtualcluster(%s): %s", vc.GetName(), getIPErr)
+		return
+	}
+	admKbCfgSrt, updateErr := updateKubeConfigSecret(admKbCfgSrt, newUrl)
+	if updateErr != nil {
+		log.Printf("fail to update admin-kubeconfig secret for Virtualcluster(%s): %s",
+			vc.GetName(), updateErr)
+		return
+	}
 
 	// 3. create the root namespace of the vc
 	if err := benchkubeutil.CreateNS(vcr.metaClusterClient, rootNs); err != nil {
@@ -286,6 +285,7 @@ func (vcr *VirtualclusterRegister) onUpdate(old, new interface{}) {
 }
 
 func updateKubeConfigSecret(oldSrt *v1.Secret, newServerUrl string) (*v1.Secret, error) {
+	log.Printf("updating admin-kubeconfig with new url: %s", newServerUrl)
 	admKbCfgByts, exist := oldSrt.Data[secret.AdminSecretName]
 	if !exist {
 		return nil, fmt.Errorf("Secret(%s) doesn't contain Data[%s]",
@@ -331,7 +331,7 @@ func isRelatedToVc(ns *v1.Namespace, vc *tenancyv1alpha1.VirtualCluster) bool {
 			break
 		}
 	}
-	if tmpVcName != "" && tmpVcName == benchvcutil.ToClusterKey2(vc) {
+	if tmpVcName != "" && tmpVcName == vc.Status.ClusterNamespace {
 		return true
 	}
 	return false
@@ -376,9 +376,9 @@ func (vcr *VirtualclusterRegister) onDelete(obj interface{}) {
 	}
 	vcr.deleteBelongings(vc)
 	if err := vcr.metaClusterClient.Delete(context.TODO(), &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: benchvcutil.ToClusterKey2(vc)},
+		ObjectMeta: metav1.ObjectMeta{Name: vc.Status.ClusterNamespace},
 	}); err != nil && !apierrors.IsNotFound(err) {
-		log.Printf("fail to delete the root namespace: %s", benchvcutil.ToClusterKey2(vc))
+		log.Printf("fail to delete the root namespace: %s", vc.Status.ClusterNamespace)
 		return
 	}
 	vc = filterVcMeta(vc)
