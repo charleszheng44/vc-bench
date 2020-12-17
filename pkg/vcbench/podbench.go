@@ -37,7 +37,6 @@ metadata:
   name: {{ .podname }}
   namespace: {{ .podnamespace }}
 spec:
-  schedulerName: kube-scheduler
   nodeSelector:
     type: virtual-kubelet
   tolerations:
@@ -51,7 +50,7 @@ spec:
       requests:
         memory: "128Mi"
         cpu: "500m"
-      limists:
+      limits:
         memory: "128Mi"
         cpu: "500m"
     command:
