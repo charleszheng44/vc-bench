@@ -2,6 +2,8 @@
 
 set -xeu
 
+declare -i MIN_IDX=${MIN_IDX:-1}
+declare -i MAX_IDX=${MAX_IDX:-100}
 declare -i NUM_VC=${NUM_VC:-1}
 CV_NAME=${CV_NAME:-cv-sample-np}
 VC_NAME_BASE=${VC_NAME_BASE:-vc}
@@ -34,7 +36,7 @@ spec:
     - \"vc.perfbench.syncer\"
 "
 
-for i in $(seq 1 $((++NUM_VC))); do
+for i in $(seq $MIN_IDX $((++MAX_IDX))); do
     curr_template=$(echo "$VC_TEMPLATE" | sed "s/_vc-name/${VC_NAME_BASE}$i/; s/_vc-ns/${NS_BASE}$i/; s/_vc-id/$i/")
     echo "$curr_template" | kubectl apply -f-
 done
