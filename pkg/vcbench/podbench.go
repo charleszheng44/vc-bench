@@ -224,43 +224,60 @@ func (be *BenchExecutor) CleanUp(targetNs string) {
 	endTime2 := time.Now().Unix()
 	log.Printf("deleting all nodes took %d seconds", int(endTime2-startTime2))
 
-	startTime := time.Now().Unix()
-	deletingNamespace := 0
+	// startTime := time.Now().Unix()
+	// deletingNamespace := 0
 	for vc, vcCli := range be.vcClients {
-		log.Printf("will delete namespace %s on vc %s", targetNs, vc)
-		if err := vcCli.Delete(context.TODO(), &v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: targetNs,
-			},
-		}); err != nil {
-			log.Printf("fail to delete namespace %s on vc(%s): %s", targetNs, vc, err)
-		}
-		deletingNamespace++
+		go be.DeletePods(vcCli, targetNs, vc)
+		// log.Printf("will delete namespace %s on vc %s", targetNs, vc)
+		// if err := vcCli.Delete(context.TODO(), &v1.Namespace{
+		// 	ObjectMeta: metav1.ObjectMeta{
+		// 		Name: targetNs,
+		// 	},
+		// }); err != nil {
+		// 	log.Printf("fail to delete namespace %s on vc(%s): %s", targetNs, vc, err)
+		// }
+		// deletingNamespace++
 	}
-	for deletingNamespace > 0 {
-		<-time.After(20 * time.Second)
-		log.Printf("there are %d namespace left", deletingNamespace)
-		for vc, vcCli := range be.vcClients {
-			ns := v1.Namespace{}
-			if err := vcCli.Get(context.TODO(), types.NamespacedName{
-				Name:      DefaultBenchNamespace,
-				Namespace: "default",
-			}, &ns); err != nil {
-				if apierrors.IsNotFound(err) {
-					deletingNamespace--
-					continue
-				}
-				log.Printf("fail to delete namespace(%s) for vc(%s)",
-					DefaultBenchNamespace, vc)
-				return
-			} else {
-				log.Printf("%s(%s) on vc(%s) is still exist", DefaultBenchNamespace, ns.Status.Phase, vc)
-			}
-		}
-	}
-	endTime := time.Now().Unix()
-	log.Printf("deleting all namespaces took %d seconds", int(endTime-startTime))
+	// for deletingNamespace > 0 {
+	// 	<-time.After(20 * time.Second)
+	// 	log.Printf("there are %d namespace left", deletingNamespace)
+	// 	for vc, vcCli := range be.vcClients {
+	// 		ns := v1.Namespace{}
+	// 		if err := vcCli.Get(context.TODO(), types.NamespacedName{
+	// 			Name:      DefaultBenchNamespace,
+	// 			Namespace: "default",
+	// 		}, &ns); err != nil {
+	// 			if apierrors.IsNotFound(err) {
+	// 				deletingNamespace--
+	// 				continue
+	// 			}
+	// 			log.Printf("fail to delete namespace(%s) for vc(%s)",
+	// 				DefaultBenchNamespace, vc)
+	// 			return
+	// 		} else {
+	// 			log.Printf("%s(%s) on vc(%s) is still exist",
+	// 				DefaultBenchNamespace, ns.Status.Phase, vc)
+	// 		}
+	// 	}
+	// }
+	// endTime := time.Now().Unix()
+	// log.Printf("deleting all namespaces took %d seconds", int(endTime-startTime))
+}
 
+func (be *BenchExecutor) DeletePods(cli client.Client, targetNs, vc string) {
+	var podLst v1.PodList
+	if err := cli.List(context.TODO(), &podLst, &client.ListOptions{
+		Namespace: targetNs,
+	}); err != nil && !apierrors.IsNotFound(err) {
+		log.Fatalf("fail to list pod in ns/%s for %s", targetNs, vc)
+	}
+	for _, pod := range podLst.Items {
+		if err := cli.Delete(context.TODO(), &pod); err != nil {
+			log.Fatalf("fail to delete pod/%s in ns/%s for %s",
+				pod.GetName(), targetNs, vc)
+		}
+	}
+	log.Printf("delete pods in ns/%s for %s", targetNs, vc)
 }
 
 func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, tenant tenant.Tenant, wg *sync.WaitGroup) {
