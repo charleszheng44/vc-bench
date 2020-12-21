@@ -276,8 +276,8 @@ func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, tenant tenan
 	}
 	log.Printf("[GOROUTINE] benchmark namespace(%s) is created on vc(%s)",
 		DefaultBenchNamespace, vc)
-	log.Println("will sleep for 1 min to wait for sa been created")
-	<-time.After(time.Duration(1) * time.Minute)
+	log.Println("will sleep for 10 seconds to wait for sa been created")
+	<-time.After(time.Duration(10) * time.Second)
 	for i := 0; i < tenant.NumPods; i++ {
 		// subsitute rsrc yaml
 		podName := fmt.Sprintf("%s-%s-%s%d", vc, tenant.ID, defaultPodBaseName, i)
