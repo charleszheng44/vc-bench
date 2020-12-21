@@ -216,6 +216,7 @@ func (be *BenchExecutor) CleanUp(targetNs string) {
 			}
 			if len(nl.Items) != 0 {
 				log.Printf("there are %d nodes left on vc(%s)", len(nl.Items), vc)
+				time.Sleep(1 * time.Second)
 				allNodesRemoved = false
 			}
 		}
