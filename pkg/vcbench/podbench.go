@@ -238,6 +238,17 @@ func (be *BenchExecutor) CleanUp(targetNs string) {
 		// }
 		// deletingNamespace++
 	}
+
+	for vc, vcCli := range be.vcClients {
+		log.Printf("will delete namespace %s on vc %s", targetNs, vc)
+		if err := vcCli.Delete(context.TODO(), &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: targetNs,
+			},
+		}); err != nil {
+			log.Printf("fail to delete namespace %s on vc(%s): %s", targetNs, vc, err)
+		}
+	}
 	// for deletingNamespace > 0 {
 	// 	<-time.After(20 * time.Second)
 	// 	log.Printf("there are %d namespace left", deletingNamespace)
