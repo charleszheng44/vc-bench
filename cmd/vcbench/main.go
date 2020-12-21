@@ -65,8 +65,8 @@ func init() {
 	runBenchFlagSet.StringVar(&tenantJson, "tenantJson", "", "The path to the tenant json file")
 	runBenchFlagSet.IntVar(&scrapeInterval, "scrapeInterval", 20, "The interval for scraping metrics from syncer pod")
 	runBenchFlagSet.IntVar(&scrapeKubeletInterval, "scrapeKubeletInterval", 30, "The interval for scraping metrics from kubelet")
-	runBenchFlagSet.IntVar(&tenantInterval, "tntintvl", 0, "The submission interval among tenants")
-	runBenchFlagSet.IntVar(&podInterval, "podintvl", 0, "The submission interval of pods in one tenant")
+	runBenchFlagSet.IntVar(&tenantInterval, "tntintvl", 0, "The submission interval(milliseconds) among tenants")
+	runBenchFlagSet.IntVar(&podInterval, "podintvl", 0, "The submission interval(milliseconds) of pods in one tenant")
 	runBenchFlagSet.IntVar(&syncerStandaloneMinute, "syncer-alone-minutes", 5, "Number of minutes for syncer to standalone after podbench successfully completing")
 
 	// command options for subcommand "clean"

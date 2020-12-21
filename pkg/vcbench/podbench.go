@@ -321,7 +321,7 @@ func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, tenant tenan
 		}
 		be.Unlock()
 
-		time.Sleep(time.Duration(be.PodInterval) * time.Second)
+		time.Sleep(time.Duration(be.PodInterval) * time.Millisecond)
 	}
 }
 
@@ -336,7 +336,7 @@ func (be *BenchExecutor) RunBench() error {
 		wg.Add(1)
 		go be.SubmitPods(vc, vcCli, be.Tenants[tenantCounter], &wg)
 		tenantCounter++
-		time.Sleep(time.Duration(be.TenantInterval) * time.Second)
+		time.Sleep(time.Duration(be.TenantInterval) * time.Millisecond)
 	}
 	log.Printf("waiting for submitting pod on vc...")
 	wg.Wait()
