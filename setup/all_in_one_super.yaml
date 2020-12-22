@@ -43,7 +43,8 @@ spec:
       containers:
         - command:
             - syncer
-          image: registry.cn-hangzhou.aliyuncs.com/virtualcluster/syncer-amd64
+          # image: registry.cn-hangzhou.aliyuncs.com/virtualcluster/syncer-amd64
+          image: virtualcluster/syncer-amd64:icdcs
           imagePullPolicy: Always
           name: vc-syncer
 ---

@@ -24,9 +24,9 @@ KUBE_CFG=${KUBE_CFG:-$HOME/.kube/config}
 declare -A vk_pid_map
 declare -r VK_TEMPLATE="{
     \"_vkname\": {
-      \"cpu\": \"2\",
-      \"memory\": \"32Gi\",
-      \"pods\": \"128\"
+      \"cpu\": \"64\",
+      \"memory\": \"256Gi\",
+      \"pods\": \"500\"
     }
 }"
 
