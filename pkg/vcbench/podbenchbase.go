@@ -111,7 +111,7 @@ func (bbe *BaseBenchExecutor) SubmitPods(cli client.Client, numPod, tenantId int
 			log.Printf("fail to submit pod(%s) by tenant(%d): %s", podName, tenantId, err)
 			return err
 		}
-		log.Printf("pod(%s) submitted by tenant %d", podName, tenantId)
+		// log.Printf("pod(%s) submitted by tenant %d", podName, tenantId)
 		<-time.After(time.Duration(bbe.PodInterval) * time.Second)
 	}
 	return nil
