@@ -79,6 +79,7 @@ func (bbe *BaseBenchExecutor) SubmitPods(cli client.Client, numPod, tenantId int
 		}
 		log.Printf("benchmark namespace %s is created", tenantNs)
 	}
+	time.Sleep(5 * time.Second)
 	for i := 1; i <= numPod; i++ {
 		podName := fmt.Sprintf("%s%d", defaultPodBaseName, i)
 		ctx := map[string]string{
