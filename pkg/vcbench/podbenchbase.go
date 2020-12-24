@@ -46,6 +46,8 @@ func NewBaseBenchExecutor(kubeconfigPath string, numPod, podInterval, numTenants
 	}
 	cliLst := []client.Client{}
 	for i := 0; i < numTenants; i++ {
+		kbCfg.QPS = 500
+		kbCfg.Burst = 1000
 		cli, err := client.New(kbCfg, client.Options{Scheme: scheme.Scheme})
 		if err != nil {
 			return nil, err
