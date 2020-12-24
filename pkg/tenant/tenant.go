@@ -11,8 +11,9 @@ import (
 const tenantBaseName = "tenant"
 
 type Tenant struct {
-	ID      string `json:"id"`
-	NumPods int    `json:"numPods"`
+	ID               string `json:"id"`
+	NumPods          int    `json:"numPods"`
+	ConcurrentSubmit bool   `json:"concurrentSubmit"`
 }
 
 func randInRange(min, max int) int {

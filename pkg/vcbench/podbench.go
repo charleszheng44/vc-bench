@@ -307,51 +307,102 @@ func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, tenant tenan
 		DefaultBenchNamespace, vc)
 	log.Println("will sleep for 10 seconds to wait for sa been created")
 	<-time.After(time.Duration(10) * time.Second)
-	for i := 0; i < tenant.NumPods; i++ {
-		// subsitute rsrc yaml
-		podName := fmt.Sprintf("%s-%s-%s%d", vc, tenant.ID, defaultPodBaseName, i)
-		ctx := map[string]string{
-			"podname":      podName,
-			"podnamespace": DefaultBenchNamespace,
+	if tenant.ConcurrentSubmit {
+		for i := 0; i < tenant.NumPods; i++ {
+			log.Printf("[GOROUTINE] concurrently submit pods on vc(%s)", vc)
+			go be.submitPod(vc, tenant, i, vcCli)
 		}
-		podYaml, err := fillOutTemplate(defaultPodTemp, ctx)
-		if err != nil {
-			log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
-			return
-		}
-		// convert yaml to object
-		obj, err := yamlBytsToObject(be.scheme, podYaml)
-		if err != nil {
-			log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
-			return
-		}
-		pod, ok := obj.(*v1.Pod)
-		if !ok {
-			err = errors.New("fail to assert runtime object to pod pointer")
-			log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
-			return
-		}
-		// submit rsrc
-		if err = vcCli.Create(context.TODO(), pod); err != nil {
-			log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
-			return
-		}
-		log.Printf("[GOROUTINE] pod(%s) created on vc(%s)", pod.GetName(), vc)
+	} else {
+		for i := 0; i < tenant.NumPods; i++ {
+			// subsitute rsrc yaml
+			podName := fmt.Sprintf("%s-%s-%s%d", vc, tenant.ID, defaultPodBaseName, i)
+			ctx := map[string]string{
+				"podname":      podName,
+				"podnamespace": DefaultBenchNamespace,
+			}
+			podYaml, err := fillOutTemplate(defaultPodTemp, ctx)
+			if err != nil {
+				log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
+				return
+			}
+			// convert yaml to object
+			obj, err := yamlBytsToObject(be.scheme, podYaml)
+			if err != nil {
+				log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
+				return
+			}
+			pod, ok := obj.(*v1.Pod)
+			if !ok {
+				err = errors.New("fail to assert runtime object to pod pointer")
+				log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
+				return
+			}
+			// submit rsrc
+			if err = vcCli.Create(context.TODO(), pod); err != nil {
+				log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
+				return
+			}
+			log.Printf("[GOROUTINE] pod(%s) created on vc(%s)", pod.GetName(), vc)
 
-		be.Lock()
-		be.RuntimeStatics[podName] = &RuntimeStatics{
-			PodName:     podName,
-			ClusterName: vc,
-		}
-		if _, exist := be.waitingPodsOnVc[vc]; !exist {
-			be.waitingPodsOnVc[vc] = 1
-		} else {
-			be.waitingPodsOnVc[vc]++
-		}
-		be.Unlock()
+			be.Lock()
+			be.RuntimeStatics[podName] = &RuntimeStatics{
+				PodName:     podName,
+				ClusterName: vc,
+			}
+			if _, exist := be.waitingPodsOnVc[vc]; !exist {
+				be.waitingPodsOnVc[vc] = 1
+			} else {
+				be.waitingPodsOnVc[vc]++
+			}
+			be.Unlock()
 
-		time.Sleep(time.Duration(be.PodInterval) * time.Millisecond)
+			time.Sleep(time.Duration(be.PodInterval) * time.Millisecond)
+		}
 	}
+}
+
+func (be *BenchExecutor) submitPod(vc string, tenant tenant.Tenant, i int, vcCli client.Client) {
+	// subsitute rsrc yaml
+	podName := fmt.Sprintf("%s-%s-%s%d", vc, tenant.ID, defaultPodBaseName, i)
+	ctx := map[string]string{
+		"podname":      podName,
+		"podnamespace": DefaultBenchNamespace,
+	}
+	podYaml, err := fillOutTemplate(defaultPodTemp, ctx)
+	if err != nil {
+		log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
+		return
+	}
+	// convert yaml to object
+	obj, err := yamlBytsToObject(be.scheme, podYaml)
+	if err != nil {
+		log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
+		return
+	}
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		err = errors.New("fail to assert runtime object to pod pointer")
+		log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
+		return
+	}
+	// submit rsrc
+	if err = vcCli.Create(context.TODO(), pod); err != nil {
+		log.Printf("[GOROUTINE] fail to submit pods on vc(%s): %s", vc, err)
+		return
+	}
+	// log.Printf("[GOROUTINE] pod(%s) created on vc(%s)", pod.GetName(), vc)
+
+	be.Lock()
+	be.RuntimeStatics[podName] = &RuntimeStatics{
+		PodName:     podName,
+		ClusterName: vc,
+	}
+	if _, exist := be.waitingPodsOnVc[vc]; !exist {
+		be.waitingPodsOnVc[vc] = 1
+	} else {
+		be.waitingPodsOnVc[vc]++
+	}
+	be.Unlock()
 }
 
 func (be *BenchExecutor) RunBench() error {
