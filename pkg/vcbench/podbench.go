@@ -180,6 +180,8 @@ func buildVcClient(tenantKubeCli client.Client, vc *tenancyv1alpha1.VirtualClust
 	if err != nil {
 		return nil, err
 	}
+	vcRestCfg.QPS = 500
+	vcRestCfg.Burst = 1000
 	vcCli, err := client.New(vcRestCfg, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
 		return nil, err
