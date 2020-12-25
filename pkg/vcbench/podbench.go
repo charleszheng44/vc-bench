@@ -83,7 +83,6 @@ type RuntimeStatics struct {
 type BenchExecutor struct {
 	client.Client
 	*PodBenchConfig
-	sync.Mutex
 
 	Tenants         []tenant.Tenant
 	scheme          *runtime.Scheme
@@ -102,12 +101,13 @@ func NewBenchExecutor(tenantsKbCfg string, tenants []tenant.Tenant, tenantInterv
 	if err != nil {
 		return nil, err
 	}
+
 	be := &BenchExecutor{
 		scheme:          scheme.Scheme,
 		RuntimeStatics:  make(map[string]*RuntimeStatics),
 		vcClients:       make(map[string]client.Client),
-		waitingPodsOnVc: make(map[string]int),
 		Tenants:         tenants,
+		waitingPodsOnVc: make(map[string]int),
 		PodBenchConfig: &PodBenchConfig{
 			TenantInterval: tenantInterval,
 			PodInterval:    podInterval,
@@ -346,18 +346,6 @@ func (be *BenchExecutor) SubmitPods(vc string, vcCli client.Client, tenant tenan
 			}
 			log.Printf("[GOROUTINE] pod(%s) created on vc(%s)", pod.GetName(), vc)
 
-			be.Lock()
-			be.RuntimeStatics[podName] = &RuntimeStatics{
-				PodName:     podName,
-				ClusterName: vc,
-			}
-			if _, exist := be.waitingPodsOnVc[vc]; !exist {
-				be.waitingPodsOnVc[vc] = 1
-			} else {
-				be.waitingPodsOnVc[vc]++
-			}
-			be.Unlock()
-
 			time.Sleep(time.Duration(be.PodInterval) * time.Millisecond)
 		}
 	}
@@ -393,33 +381,24 @@ func (be *BenchExecutor) submitPod(vc string, tenant tenant.Tenant, i int, vcCli
 		return
 	}
 	// log.Printf("[GOROUTINE] pod(%s) created on vc(%s)", pod.GetName(), vc)
-
-	be.Lock()
-	be.RuntimeStatics[podName] = &RuntimeStatics{
-		PodName:     podName,
-		ClusterName: vc,
-	}
-	if _, exist := be.waitingPodsOnVc[vc]; !exist {
-		be.waitingPodsOnVc[vc] = 1
-	} else {
-		be.waitingPodsOnVc[vc]++
-	}
-	be.Unlock()
 }
 
 func (be *BenchExecutor) RunBench() error {
 	// equally spread rsrc to each vc
 	var wg sync.WaitGroup
 	tenantCounter := 0
+	waitingPodsOnVc := make(map[string]int)
 	for vc, vcCli := range be.vcClients {
 		if tenantCounter == len(be.Tenants) {
 			break
 		}
 		wg.Add(1)
+		waitingPodsOnVc[vc] = be.Tenants[tenantCounter].NumPods
 		go be.SubmitPods(vc, vcCli, be.Tenants[tenantCounter], &wg)
 		tenantCounter++
 		time.Sleep(time.Duration(be.TenantInterval) * time.Millisecond)
 	}
+	be.waitingPodsOnVc = waitingPodsOnVc
 	log.Printf("waiting for submitting pod on vc...")
 	wg.Wait()
 	log.Printf("all pod submitted to vc")

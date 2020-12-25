@@ -8,8 +8,8 @@ with open("100tenants10000pods.log") as fp:
     lines = fp.readlines()
     for line in lines:
         tokens = line.split(",")
-        creation_ts.append(int(tokens[1])) 
-        # creation_ts.append(int(tokens[3])) 
+        # creation_ts.append(int(tokens[1])) 
+        creation_ts.append(int(tokens[3])) 
 
 plt.hist(creation_ts, edgecolor='black', linewidth=1)
 plt.show()
