@@ -3,13 +3,13 @@
 import matplotlib.pyplot as plt
 
 creation_ts = []
-with open("100tenants10000pods.data") as fp:
+with open("100tenants10000pods.log") as fp:
     next(fp)
     lines = fp.readlines()
     for line in lines:
         tokens = line.split(",")
-        creation_ts.append(int(tokens[1])) 
+        creation_ts.append(int(tokens[3])) 
 
 plt.hist(creation_ts, edgecolor='black', linewidth=1)
-plt.title("Native")
+plt.title("VC-on-super")
 plt.show()
