@@ -56,15 +56,44 @@ def plot_hist(num_tenants, num_pods):
             total_latency_100_workers]
 
     plt.figure(figsize=(10, 5))
-    plt.hist(x_multis, edgecolor='black', linewidth=1, bins=range(20), align='left')
-    labels = ['baseline', '20 dws workers', '100 dws workers']
-    plt.legend(labels)
-    plt.ylim(1, 10000)
-    plt.yscale('log')
-    plt.xticks(np.arange(0, 19, 1))
-    plt.title('{} pods creation latency of {} tenants'.format(num_pods, num_tenants))
+    plt.hist(x_multis, edgecolor='black', linewidth=1, bins=np.arange(0, 16, 2), align='left')
+    labels = ['Baseline', '20 workers', '100 workers']
+    if num_pods == 1250:
+        plt.legend(labels,bbox_to_anchor=(0.5, 1.22), loc="upper center", fontsize=18, ncol=len(labels))
     
-    plt.show()
+    ylim = 3000
+    if num_pods == 1250:
+        ylim = 1500
+        plt.yticks(np.arange(0, 1600, 300), fontsize=14)
+    
+    if num_pods == 2500:
+        ylim = 3000
+
+    if num_pods == 5000:
+        ylim = 5000
+
+    if num_pods == 10000:
+        ylim = 5000
+
+    # ylim = 10000
+    plt.ylim(1, ylim)
+    # plt.yscale('log')
+    plt.xlabel('Time Bucket (seconds)', fontsize=18)
+    plt.ylabel('Number of Pods', fontsize=18)
+    xlabels = ["0", "2", "4", "6", "8", "10", "<18", ""]
+    plt.xticks(np.arange(0, 16, 2), xlabels, fontsize=16)
+    plt.yticks(fontsize=16)
+    # plt.title('{} pods creation latency of {} tenants'.format(num_pods, num_tenants), fontdict = {'fontsize' : 22})
+    
+    fig_fn = "{}tenants{}pods.png".format(num_tenants, num_pods)
+    ax = plt.gca()
+    ax.yaxis.grid(color='gray', linestyle='dashed')
+    ax.set_axisbelow(True)
+    plt.text(4, ylim*0.85, "\n{} Pods".format(num_pods), fontsize=22, weight='bold')
+    xticks = ax.xaxis.get_major_ticks()
+    xticks[-1].label1.set_visible(False)
+    # plt.show()
+    plt.savefig(fig_fn, bbox_inches='tight')
 
 if __name__ == "__main__":
     plot_hist(100, 10000)
@@ -75,3 +104,7 @@ if __name__ == "__main__":
     plot_hist(50, 5000)
     plot_hist(50, 2500)
     plot_hist(50, 1250)
+    plot_hist(25, 10000)
+    plot_hist(25, 5000)
+    plot_hist(25, 2500)
+    plot_hist(25, 1250)
